@@ -27,7 +27,6 @@ from captureAgents import CaptureAgent
 from game import Directions
 from util import nearestPoint
 
-
 #################
 # Team creation #
 #################
@@ -63,6 +62,7 @@ class ReflexCaptureAgent(CaptureAgent):
     def __init__(self, index, time_for_computing=.1):
         super().__init__(index, time_for_computing)
         self.start = None
+        self.values = util.Counter()
 
     def register_initial_state(self, game_state):
         self.start = game_state.get_agent_position(self.index)
@@ -97,7 +97,7 @@ class ReflexCaptureAgent(CaptureAgent):
             return best_action
 
         return random.choice(best_actions)
-
+    
     def get_successor(self, game_state, action):
         """
         Finds the next successor which is a grid position (location tuple).
@@ -159,6 +159,55 @@ class OffensiveReflexAgent(ReflexCaptureAgent):
     def get_weights(self, game_state, action):
         return {'successor_score': 100, 'distance_to_food': -10}
 
+    def getQValue(self, game_state, action):
+        """
+          Returns Q(state,action)
+          Should return 0.0 if we have never seen a state
+          or the Q node value otherwise
+        """
+        return self.values[(game_state, action)]
+    
+    def computeValueFromQValues(self, game_state):
+        # Initial check, just to check if we have states to compute
+        if len(game_state.get_legal_actions(self.index)) is 0:
+            return 0
+
+        # To save the values we will get
+        Qvalue_nextstate = []
+        # Here we will get our (N,S,E,W) legal actions to move
+        for action in game_state.get_legal_actions(self.index):
+            Qvalue_nextstate.append(self.getQValue(game_state, action))
+
+        # Get the max value of the actions
+        return max(Qvalue_nextstate)
+    
+    def computeActionFromQValues(self, game_state):
+        # First check, terminal state is NONE
+        if len(game_state.get_legal_actions(self.index)) == 0:
+            return None
+        # To save the actions
+        bestQ = game_state.computeValueFromQValues(self.index)
+        bestActions = []
+        # Check the legal actions and save them
+        for action in self.get_legal_actions(game_state):
+            if bestQ == self.getQValue(game_state, action):
+                bestActions.append(action)
+        # Every action on our best_action vector it is fine, so get one of them
+        return random.choice(bestActions)
+
+    def choose_action(self, game_state):
+		# Pick Action
+		legalActions = game_state.get_legal_actions(self.index)
+		action = None
+
+		if len(legalActions) != 0:
+			prob = util.flipCoin(self.epsilon)
+			if prob:
+				action = random.choice(legalActions)
+			else:
+				action = self.computeActionFromQValues(game_state)
+		return action
+
 
 class DefensiveReflexAgent(ReflexCaptureAgent):
     """
@@ -194,4 +243,4 @@ class DefensiveReflexAgent(ReflexCaptureAgent):
         return features
 
     def get_weights(self, game_state, action):
-        return {'num_invaders': -1000, 'on_defense': 200, 'invader_distance': -20, 'stop': -10, 'reverse': -2}
+        return {'num_invaders': -1000, 'on_defense': 500, 'invader_distance': -20, 'stop': -100, 'reverse': -2}
